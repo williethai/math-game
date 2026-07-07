@@ -139,6 +139,48 @@
   .grade-msg { font-size: 1.15rem; margin-bottom: 8px; }
   .stars { font-size: 2rem; letter-spacing: 6px; margin-bottom: 10px; }
 
+  /* Setup screen */
+  .setup-heading { font-weight: bold; margin: 20px 0 10px; font-size: 1.05rem; }
+  .choice-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .opt-btn {
+    border: 3px solid #dfe6e9;
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px 18px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: var(--text);
+    transition: transform 0.1s ease, border-color 0.12s, background 0.12s, color 0.12s;
+  }
+  .opt-btn:active { transform: translateY(2px); }
+  .opt-btn.selected {
+    border-color: var(--bg2);
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: #fff;
+  }
+  .num-btn { min-width: 62px; }
+
+  /* Multiple-choice answers in quiz */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0; }
+  .choice-answer {
+    border: 3px solid #dfe6e9;
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px 10px;
+    font-size: 1.7rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: var(--text);
+    transition: transform 0.1s ease, border-color 0.12s, background 0.12s, color 0.12s;
+  }
+  .choice-answer:active { transform: translateY(2px); }
+  .choice-answer.selected {
+    border-color: var(--bg2);
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: #fff;
+  }
+
   .hidden { display: none; }
 </style>
 </head>
@@ -149,15 +191,40 @@
       <h1>Math Adventure</h1>
       <p class="subtitle">Pick a level and solve the additions!</p>
       <div class="levels">
-        <button class="level-btn lvl1" onclick="startGame(1)">
+        <button class="level-btn lvl1" onclick="chooseLevel(1)">
           Level 1 <small>Sums up to 10</small>
         </button>
-        <button class="level-btn lvl2" onclick="startGame(2)">
+        <button class="level-btn lvl2" onclick="chooseLevel(2)">
           Level 2 <small>Sums up to 20</small>
         </button>
-        <button class="level-btn lvl3" onclick="startGame(3)">
+        <button class="level-btn lvl3" onclick="chooseLevel(3)">
           Level 3 <small>Sums up to 30</small>
         </button>
+      </div>
+    </section>
+
+    <!-- SETUP SCREEN -->
+    <section id="setup" class="hidden">
+      <h1>Game Setup</h1>
+      <p class="subtitle" id="setupLevelLabel">Level 1</p>
+
+      <p class="setup-heading">How do you want to answer?</p>
+      <div class="choice-row">
+        <button class="opt-btn" id="typeInput" onclick="setAnswerType('input')">Type the number</button>
+        <button class="opt-btn" id="typeChoice" onclick="setAnswerType('choice')">Pick from 4 options</button>
+      </div>
+
+      <p class="setup-heading">How many questions?</p>
+      <div class="choice-row" id="numRow">
+        <button class="opt-btn num-btn" data-num="10" onclick="setNumQuestions(10)">10</button>
+        <button class="opt-btn num-btn" data-num="20" onclick="setNumQuestions(20)">20</button>
+        <button class="opt-btn num-btn" data-num="30" onclick="setNumQuestions(30)">30</button>
+        <button class="opt-btn num-btn" data-num="40" onclick="setNumQuestions(40)">40</button>
+      </div>
+
+      <div>
+        <button class="btn" onclick="beginGame()">Start</button>
+        <button class="btn secondary" onclick="goHome()">Back</button>
       </div>
     </section>
 
@@ -173,6 +240,7 @@
 
       <div class="question" id="question">2 + 3</div>
       <input class="answer-input" id="answer" type="number" inputmode="numeric" autocomplete="off" placeholder="?" />
+      <div class="choices hidden" id="choices"></div>
       <div>
         <button class="btn" id="nextBtn" onclick="next()">Next</button>
       </div>
@@ -188,20 +256,23 @@
       <p class="subtitle" id="finalPct">100% correct</p>
       <p class="subtitle" id="finalTime">Time: 0:00</p>
       <div>
-        <button class="btn" onclick="startGame(currentLevel)">Play Again</button>
+        <button class="btn" onclick="beginGame()">Play Again</button>
+        <button class="btn secondary" onclick="openSetup()">Change Setup</button>
         <button class="btn secondary" onclick="goHome()">Menu</button>
       </div>
     </section>
   </div>
 
 <script>
-  const TOTAL_QUESTIONS = 10;
   const LEVEL_MAX = { 1: 10, 2: 20, 3: 30 };
 
   let currentLevel = 1;
+  let answerType = "input";   // "input" | "choice"
+  let numQuestions = 10;
   let questions = [];
   let index = 0;
   let score = 0;
+  let selectedValue = null;   // chosen option in "choice" mode
 
   let startTime = 0;
   let elapsedMs = 0;
@@ -211,25 +282,71 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // Build 4 similar-looking answer options (correct one + 3 close distractors).
+  function makeOptions(answer) {
+    const opts = new Set([answer]);
+    let spread = 1;
+    while (opts.size < 4) {
+      [answer - spread, answer + spread].forEach(c => {
+        if (c >= 0 && opts.size < 4) opts.add(c);
+      });
+      spread++;
+      if (spread > 50) break; // safety
+    }
+    return shuffle([...opts]);
+  }
+
   // Build an addition question whose sum is <= max for the level.
   function makeQuestion(max) {
     const sum = randInt(1, max);          // target result (at least 1)
     const a = randInt(0, sum);            // first addend
     const b = sum - a;                    // second addend so a + b = sum
-    return { a, b, answer: sum };
+    return { a, b, answer: sum, options: makeOptions(sum) };
   }
 
-  function startGame(level) {
+  function chooseLevel(level) {
     currentLevel = level;
+    openSetup();
+  }
+
+  function openSetup() {
+    document.getElementById("setupLevelLabel").textContent = "Level " + currentLevel;
+    setAnswerType(answerType);
+    setNumQuestions(numQuestions);
+    show("setup");
+  }
+
+  function setAnswerType(t) {
+    answerType = t;
+    document.getElementById("typeInput").classList.toggle("selected", t === "input");
+    document.getElementById("typeChoice").classList.toggle("selected", t === "choice");
+  }
+
+  function setNumQuestions(n) {
+    numQuestions = n;
+    document.querySelectorAll("#numRow .num-btn").forEach(btn => {
+      btn.classList.toggle("selected", Number(btn.dataset.num) === n);
+    });
+  }
+
+  function beginGame() {
     questions = [];
-    for (let i = 0; i < TOTAL_QUESTIONS; i++) {
-      questions.push(makeQuestion(LEVEL_MAX[level]));
+    for (let i = 0; i < numQuestions; i++) {
+      questions.push(makeQuestion(LEVEL_MAX[currentLevel]));
     }
     index = 0;
     score = 0;
 
     show("quiz");
-    document.getElementById("levelLabel").textContent = "Level " + level;
+    document.getElementById("levelLabel").textContent = "Level " + currentLevel;
     startTimer();
     renderQuestion();
   }
@@ -237,30 +354,61 @@
   function renderQuestion() {
     const q = questions[index];
     document.getElementById("question").textContent = q.a + " + " + q.b;
-    document.getElementById("progressLabel").textContent = (index + 1) + " / " + TOTAL_QUESTIONS;
+    document.getElementById("progressLabel").textContent = (index + 1) + " / " + numQuestions;
     document.getElementById("scoreLabel").textContent = "Score: " + score;
-    document.getElementById("progressFill").style.width = (index / TOTAL_QUESTIONS * 100) + "%";
+    document.getElementById("progressFill").style.width = (index / numQuestions * 100) + "%";
 
     const input = document.getElementById("answer");
-    input.value = "";
-    input.focus();
+    const choices = document.getElementById("choices");
+    selectedValue = null;
 
-    const isLast = index === TOTAL_QUESTIONS - 1;
+    if (answerType === "input") {
+      input.classList.remove("hidden");
+      choices.classList.add("hidden");
+      input.value = "";
+      input.focus();
+    } else {
+      input.classList.add("hidden");
+      choices.classList.remove("hidden");
+      choices.innerHTML = "";
+      q.options.forEach(val => {
+        const btn = document.createElement("button");
+        btn.className = "choice-answer";
+        btn.textContent = val;
+        btn.onclick = () => selectOption(val, btn);
+        choices.appendChild(btn);
+      });
+    }
+
+    const isLast = index === numQuestions - 1;
     document.getElementById("nextBtn").textContent = isLast ? "Finish" : "Next";
+  }
+
+  function selectOption(val, btn) {
+    selectedValue = val;
+    document.querySelectorAll("#choices .choice-answer").forEach(b => {
+      b.classList.toggle("selected", b === btn);
+    });
   }
 
   // Records the current answer and immediately advances to the next question.
   function next() {
-    const input = document.getElementById("answer");
-    const val = Number(input.value.trim());
     const q = questions[index];
+    let given = null;
 
-    if (input.value.trim() !== "" && val === q.answer) {
+    if (answerType === "input") {
+      const raw = document.getElementById("answer").value.trim();
+      given = raw === "" ? null : Number(raw);
+    } else {
+      given = selectedValue;
+    }
+
+    if (given !== null && given === q.answer) {
       score++;
       document.getElementById("scoreLabel").textContent = "Score: " + score;
     }
 
-    if (index === TOTAL_QUESTIONS - 1) {
+    if (index === numQuestions - 1) {
       finishGame();
       return;
     }
@@ -308,13 +456,13 @@
   }
 
   function showResults() {
-    const pct = Math.round(score / TOTAL_QUESTIONS * 100);
+    const pct = Math.round(score / numQuestions * 100);
     const g = gradeFor(pct);
 
     document.getElementById("gradeBadge").textContent = g.grade;
     document.getElementById("gradeBadge").style.background = g.color;
     document.getElementById("gradeMsg").textContent = g.msg;
-    document.getElementById("finalScore").textContent = score + " / " + TOTAL_QUESTIONS;
+    document.getElementById("finalScore").textContent = score + " / " + numQuestions;
     document.getElementById("finalPct").textContent = pct + "% correct";
     document.getElementById("finalTime").textContent = "Time: " + formatTime(elapsedMs);
     document.getElementById("stars").textContent =
