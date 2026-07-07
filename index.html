@@ -29,6 +29,7 @@
   }
 
   .card {
+    position: relative;
     background: var(--card);
     width: 100%;
     max-width: 460px;
@@ -37,6 +38,21 @@
     padding: 28px 24px 32px;
     text-align: center;
   }
+
+  .mute-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    border: none;
+    background: #f1f2f6;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .mute-btn:active { transform: scale(0.92); }
 
   h1 {
     font-size: 1.9rem;
@@ -186,6 +202,7 @@
 </head>
 <body>
   <div class="card">
+    <button class="mute-btn" id="muteBtn" onclick="toggleMute()" title="Sound on/off">🔊</button>
     <!-- START SCREEN -->
     <section id="start">
       <h1>Math Adventure</h1>
@@ -273,10 +290,62 @@
   let index = 0;
   let score = 0;
   let selectedValue = null;   // chosen option in "choice" mode
+  let choiceLocked = false;   // prevents double-tapping options
 
   let startTime = 0;
   let elapsedMs = 0;
   let timerId = null;
+
+  // --- Sound (self-contained via Web Audio, no files) ---
+  let soundOn = true;
+  let audioCtx = null;
+
+  function ac() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function tone(freq, startOffset, dur, type, gain) {
+    const ctx = ac();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type || "sine";
+    osc.frequency.value = freq;
+    osc.connect(g);
+    g.connect(ctx.destination);
+    const t = ctx.currentTime + (startOffset || 0);
+    const peak = gain || 0.2;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  function playCorrect() {
+    if (!soundOn) return;
+    tone(660, 0, 0.12, "sine", 0.25);
+    tone(880, 0.10, 0.16, "sine", 0.25);
+  }
+  function playWrong() {
+    if (!soundOn) return;
+    tone(200, 0, 0.28, "sawtooth", 0.18);
+  }
+  function playFinish() {
+    if (!soundOn) return;
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.14, 0.22, "triangle", 0.25));
+  }
+
+  function toggleMute() {
+    soundOn = !soundOn;
+    document.getElementById("muteBtn").textContent = soundOn ? "🔊" : "🔇";
+    if (soundOn) ac();
+  }
 
   function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -305,9 +374,10 @@
   }
 
   // Build an addition question whose sum is <= max for the level.
+  // Both addends are >= 1 so "0" no longer shows up in the questions.
   function makeQuestion(max) {
-    const sum = randInt(1, max);          // target result (at least 1)
-    const a = randInt(0, sum);            // first addend
+    const sum = randInt(2, max);          // target result (at least 2)
+    const a = randInt(1, sum - 1);        // first addend (1..sum-1)
     const b = sum - a;                    // second addend so a + b = sum
     return { a, b, answer: sum, options: makeOptions(sum) };
   }
@@ -360,16 +430,21 @@
 
     const input = document.getElementById("answer");
     const choices = document.getElementById("choices");
+    const nextBtn = document.getElementById("nextBtn");
     selectedValue = null;
+    choiceLocked = false;
 
     if (answerType === "input") {
       input.classList.remove("hidden");
       choices.classList.add("hidden");
+      nextBtn.classList.remove("hidden");
       input.value = "";
       input.focus();
     } else {
+      // In choice mode, clicking an option advances automatically.
       input.classList.add("hidden");
       choices.classList.remove("hidden");
+      nextBtn.classList.add("hidden");
       choices.innerHTML = "";
       q.options.forEach(val => {
         const btn = document.createElement("button");
@@ -381,14 +456,21 @@
     }
 
     const isLast = index === numQuestions - 1;
-    document.getElementById("nextBtn").textContent = isLast ? "Finish" : "Next";
+    nextBtn.textContent = isLast ? "Finish" : "Next";
   }
 
   function selectOption(val, btn) {
+    if (choiceLocked) return;
+    choiceLocked = true;
     selectedValue = val;
+
+    const correct = val === questions[index].answer;
     document.querySelectorAll("#choices .choice-answer").forEach(b => {
       b.classList.toggle("selected", b === btn);
     });
+    if (correct) playCorrect(); else playWrong();
+
+    setTimeout(next, 320);
   }
 
   // Records the current answer and immediately advances to the next question.
@@ -403,9 +485,14 @@
       given = selectedValue;
     }
 
-    if (given !== null && given === q.answer) {
+    const correct = given !== null && given === q.answer;
+    if (correct) {
       score++;
       document.getElementById("scoreLabel").textContent = "Score: " + score;
+    }
+    // Choice mode already played its sound on selection.
+    if (answerType === "input") {
+      if (correct) playCorrect(); else playWrong();
     }
 
     if (index === numQuestions - 1) {
@@ -444,6 +531,7 @@
 
   function finishGame() {
     stopTimer();
+    playFinish();
     showResults();
   }
 
