@@ -474,7 +474,7 @@
   function goHome() { stopTimer(); show("start"); }
 
   function show(screen) {
-    ["start", "quiz", "results"].forEach(id => {
+    ["start", "setup", "quiz", "results"].forEach(id => {
       document.getElementById(id).classList.toggle("hidden", id !== screen);
     });
   }
