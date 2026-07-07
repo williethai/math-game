@@ -102,6 +102,7 @@
   .lvl1 { background: #2ecc71; }
   .lvl2 { background: #f39c12; }
   .lvl3 { background: #e74c3c; }
+  .lvl4 { background: #9b59b6; }
   .level-btn small { display: block; font-weight: normal; opacity: 0.9; font-size: 0.8rem; margin-top: 4px; }
 
   /* Quiz */
@@ -217,6 +218,8 @@
     background: linear-gradient(135deg, var(--bg1), var(--bg2));
     color: #fff;
   }
+  .choice-answer.correct { border-color: var(--good); background: var(--good); color: #fff; }
+  .choice-answer.wrong { border-color: var(--bad); background: var(--bad); color: #fff; }
 
   .hidden { display: none; }
 </style>
@@ -238,6 +241,9 @@
         <button class="level-btn lvl3" onclick="chooseLevel(3)">
           Level 3 <small>Sums up to 30</small>
         </button>
+        <button class="level-btn lvl4" onclick="chooseLevel(4)">
+          Level 4 <small>Add &amp; subtract, numbers under 20</small>
+        </button>
       </div>
     </section>
 
@@ -245,12 +251,6 @@
     <section id="setup" class="hidden">
       <h1>Game Setup</h1>
       <p class="subtitle" id="setupLevelLabel">Level 1</p>
-
-      <p class="setup-heading">How do you want to answer?</p>
-      <div class="choice-row">
-        <button class="opt-btn" id="typeInput" onclick="setAnswerType('input')">Type the number</button>
-        <button class="opt-btn" id="typeChoice" onclick="setAnswerType('choice')">Pick from 4 options</button>
-      </div>
 
       <p class="setup-heading">How many questions?</p>
       <div class="choice-row" id="numRow">
@@ -262,6 +262,10 @@
         <button class="opt-btn num-btn" data-num="60" onclick="setNumQuestions(60)">60</button>
         <button class="opt-btn num-btn" data-num="70" onclick="setNumQuestions(70)">70</button>
         <button class="opt-btn num-btn" data-num="80" onclick="setNumQuestions(80)">80</button>
+        <button class="opt-btn num-btn" data-num="90" onclick="setNumQuestions(90)">90</button>
+        <button class="opt-btn num-btn" data-num="100" onclick="setNumQuestions(100)">100</button>
+        <button class="opt-btn num-btn" data-num="110" onclick="setNumQuestions(110)">110</button>
+        <button class="opt-btn num-btn" data-num="120" onclick="setNumQuestions(120)">120</button>
       </div>
 
       <div>
@@ -281,11 +285,7 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
 
       <div class="question" id="question">2 + 3</div>
-      <input class="answer-input" id="answer" type="number" inputmode="numeric" autocomplete="off" placeholder="?" />
-      <div class="choices hidden" id="choices"></div>
-      <div>
-        <button class="btn" id="nextBtn" onclick="next()">Next</button>
-      </div>
+      <div class="choices" id="choices"></div>
     </section>
 
     <!-- RESULTS SCREEN -->
@@ -309,12 +309,10 @@
   const LEVEL_MAX = { 1: 10, 2: 20, 3: 30 };
 
   let currentLevel = 1;
-  let answerType = "input";   // "input" | "choice"
   let numQuestions = 10;
   let questions = [];
   let index = 0;
   let score = 0;
-  let selectedValue = null;   // chosen option in "choice" mode
   let choiceLocked = false;   // prevents double-tapping options
 
   let startTime = 0;
@@ -398,13 +396,29 @@
     return shuffle([...opts]);
   }
 
-  // Build an addition question whose sum is <= max for the level.
-  // Both addends are >= 1 so "0" no longer shows up in the questions.
-  function makeQuestion(max) {
-    const sum = randInt(2, max);          // target result (at least 2)
-    const a = randInt(1, sum - 1);        // first addend (1..sum-1)
-    const b = sum - a;                    // second addend so a + b = sum
-    return { a, b, answer: sum, options: makeOptions(sum) };
+  // Build a question for the given level.
+  // Levels 1-3: addition with sum <= level cap, both addends >= 1 (no "0").
+  // Level 4: addition or subtraction with both numbers < 20, result always positive.
+  function makeQuestion(level) {
+    if (level === 4) {
+      if (Math.random() < 0.5) {
+        const a = randInt(1, 19);
+        const b = randInt(1, 19);
+        const ans = a + b;
+        return { a, b, op: "+", answer: ans, options: makeOptions(ans) };
+      } else {
+        const a = randInt(2, 19);
+        const b = randInt(1, a - 1);       // b < a so a - b is always positive
+        const ans = a - b;
+        return { a, b, op: "-", answer: ans, options: makeOptions(ans) };
+      }
+    }
+
+    const max = LEVEL_MAX[level];
+    const sum = randInt(2, max);           // target result (at least 2)
+    const a = randInt(1, sum - 1);         // first addend (1..sum-1)
+    const b = sum - a;                     // second addend so a + b = sum
+    return { a, b, op: "+", answer: sum, options: makeOptions(sum) };
   }
 
   function chooseLevel(level) {
@@ -414,15 +428,8 @@
 
   function openSetup() {
     document.getElementById("setupLevelLabel").textContent = "Level " + currentLevel;
-    setAnswerType(answerType);
     setNumQuestions(numQuestions);
     show("setup");
-  }
-
-  function setAnswerType(t) {
-    answerType = t;
-    document.getElementById("typeInput").classList.toggle("selected", t === "input");
-    document.getElementById("typeChoice").classList.toggle("selected", t === "choice");
   }
 
   function setNumQuestions(n) {
@@ -435,7 +442,7 @@
   function beginGame() {
     questions = [];
     for (let i = 0; i < numQuestions; i++) {
-      questions.push(makeQuestion(LEVEL_MAX[currentLevel]));
+      questions.push(makeQuestion(currentLevel));
     }
     index = 0;
     score = 0;
@@ -448,84 +455,54 @@
 
   function renderQuestion() {
     const q = questions[index];
-    document.getElementById("question").textContent = q.a + " + " + q.b;
+    document.getElementById("question").textContent = q.a + " " + q.op + " " + q.b;
     document.getElementById("progressLabel").textContent = (index + 1) + " / " + numQuestions;
     document.getElementById("scoreLabel").textContent = "Score: " + score;
     document.getElementById("progressFill").style.width = (index / numQuestions * 100) + "%";
 
-    const input = document.getElementById("answer");
     const choices = document.getElementById("choices");
-    const nextBtn = document.getElementById("nextBtn");
-    selectedValue = null;
     choiceLocked = false;
-
-    if (answerType === "input") {
-      input.classList.remove("hidden");
-      choices.classList.add("hidden");
-      nextBtn.classList.remove("hidden");
-      input.value = "";
-      input.focus();
-    } else {
-      // In choice mode, clicking an option advances automatically.
-      input.classList.add("hidden");
-      choices.classList.remove("hidden");
-      nextBtn.classList.add("hidden");
-      choices.innerHTML = "";
-      q.options.forEach(val => {
-        const btn = document.createElement("button");
-        btn.className = "choice-answer";
-        btn.textContent = val;
-        btn.onclick = () => selectOption(val, btn);
-        choices.appendChild(btn);
-      });
-    }
-
-    const isLast = index === numQuestions - 1;
-    nextBtn.textContent = isLast ? "Finish" : "Next";
+    choices.innerHTML = "";
+    q.options.forEach(val => {
+      const btn = document.createElement("button");
+      btn.className = "choice-answer";
+      btn.textContent = val;
+      btn.dataset.val = val;
+      btn.onclick = () => selectOption(val, btn);
+      choices.appendChild(btn);
+    });
   }
 
+  // Choice-only: correct answer advances, a wrong answer ends the test.
   function selectOption(val, btn) {
     if (choiceLocked) return;
     choiceLocked = true;
-    selectedValue = val;
 
-    const correct = val === questions[index].answer;
-    document.querySelectorAll("#choices .choice-answer").forEach(b => {
-      b.classList.toggle("selected", b === btn);
-    });
-    if (correct) playCorrect(); else playWrong();
-
-    setTimeout(next, 320);
-  }
-
-  // Records the current answer and immediately advances to the next question.
-  function next() {
     const q = questions[index];
-    let given = null;
+    const correct = val === q.answer;
 
-    if (answerType === "input") {
-      const raw = document.getElementById("answer").value.trim();
-      given = raw === "" ? null : Number(raw);
-    } else {
-      given = selectedValue;
-    }
-
-    const correct = given !== null && given === q.answer;
     if (correct) {
+      btn.classList.add("correct");
+      playCorrect();
       score++;
       document.getElementById("scoreLabel").textContent = "Score: " + score;
+      setTimeout(() => {
+        if (index === numQuestions - 1) {
+          finishGame(true);
+        } else {
+          index++;
+          renderQuestion();
+        }
+      }, 450);
+    } else {
+      // Show the mistake and the right answer, then end the test.
+      btn.classList.add("wrong");
+      document.querySelectorAll("#choices .choice-answer").forEach(b => {
+        if (Number(b.dataset.val) === q.answer) b.classList.add("correct");
+      });
+      playWrong();
+      setTimeout(() => finishGame(false), 1100);
     }
-    // Choice mode already played its sound on selection.
-    if (answerType === "input") {
-      if (correct) playCorrect(); else playWrong();
-    }
-
-    if (index === numQuestions - 1) {
-      finishGame();
-      return;
-    }
-    index++;
-    renderQuestion();
   }
 
   function startTimer() {
@@ -554,10 +531,10 @@
     return m + ":" + String(s).padStart(2, "0");
   }
 
-  function finishGame() {
+  function finishGame(won) {
     stopTimer();
-    playFinish();
-    showResults();
+    if (won) playFinish();
+    showResults(won);
   }
 
   function gradeFor(pct) {
@@ -568,13 +545,16 @@
     return { grade: "F", color: "#e74c3c", stars: 1, msg: "Keep practicing, you can do it!" };
   }
 
-  function showResults() {
+  function showResults(won) {
     const pct = Math.round(score / numQuestions * 100);
-    const g = gradeFor(pct);
+    const g = won
+      ? { grade: "A", color: "#2ecc71", stars: 5, msg: "Perfect! You answered them all correctly!" }
+      : gradeFor(pct);
 
     document.getElementById("gradeBadge").textContent = g.grade;
     document.getElementById("gradeBadge").style.background = g.color;
-    document.getElementById("gradeMsg").textContent = g.msg;
+    document.getElementById("gradeMsg").textContent =
+      won ? g.msg : ("Wrong answer \u2014 test ended. " + g.msg);
     document.getElementById("finalScore").textContent = score + " / " + numQuestions;
     document.getElementById("finalPct").textContent = pct + "% correct";
     document.getElementById("finalTime").textContent = "Time: " + formatTime(elapsedMs);
@@ -591,11 +571,6 @@
       document.getElementById(id).classList.toggle("hidden", id !== screen);
     });
   }
-
-  // Allow pressing Enter to advance to the next question.
-  document.getElementById("answer").addEventListener("keydown", function (e) {
-    if (e.key === "Enter") document.getElementById("nextBtn").click();
-  });
 </script>
 </body>
 </html>
