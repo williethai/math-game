@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Math Adventure - Addition Game</title>
+<style>
+  :root {
+    --bg1: #6a11cb;
+    --bg2: #2575fc;
+    --card: #ffffff;
+    --accent: #ff6b6b;
+    --good: #2ecc71;
+    --bad: #e74c3c;
+    --text: #2d3436;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Comic Sans MS", "Trebuchet MS", system-ui, sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    color: var(--text);
+  }
+
+  .card {
+    background: var(--card);
+    width: 100%;
+    max-width: 460px;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 28px 24px 32px;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 1.9rem;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle { color: #888; margin-bottom: 20px; font-size: 0.95rem; }
+
+  /* Level select */
+  .levels { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+
+  .level-btn {
+    border: none;
+    border-radius: 16px;
+    padding: 18px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+  }
+  .level-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+  .lvl1 { background: #2ecc71; }
+  .lvl2 { background: #f39c12; }
+  .lvl3 { background: #e74c3c; }
+  .level-btn small { display: block; font-weight: normal; opacity: 0.9; font-size: 0.8rem; margin-top: 4px; }
+
+  /* Quiz */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    font-weight: bold;
+    font-size: 0.95rem;
+  }
+  .pill { background: #f1f2f6; border-radius: 999px; padding: 6px 14px; }
+
+  .progress-track { height: 10px; background: #eee; border-radius: 999px; overflow: hidden; margin-bottom: 22px; }
+  .progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--bg1), var(--bg2)); transition: width 0.3s ease; }
+
+  .question { font-size: 2.6rem; font-weight: bold; margin: 10px 0 22px; letter-spacing: 2px; }
+
+  .answer-input {
+    width: 150px;
+    font-size: 2rem;
+    text-align: center;
+    padding: 10px;
+    border: 3px solid #dfe6e9;
+    border-radius: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield;
+  }
+  .answer-input:focus { border-color: var(--bg2); }
+  .answer-input::-webkit-outer-spin-button,
+  .answer-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .btn {
+    display: inline-block;
+    margin-top: 20px;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 28px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+  .btn.secondary { background: #b2bec3; }
+
+  .feedback { min-height: 28px; margin-top: 16px; font-size: 1.2rem; font-weight: bold; }
+  .feedback.good { color: var(--good); }
+  .feedback.bad { color: var(--bad); }
+
+  /* Results */
+  .score-big { font-size: 3.4rem; font-weight: bold; margin: 8px 0; }
+  .grade-badge {
+    display: inline-block;
+    font-size: 3rem;
+    font-weight: bold;
+    padding: 16px 34px;
+    border-radius: 20px;
+    color: #fff;
+    margin: 12px 0 6px;
+  }
+  .grade-msg { font-size: 1.15rem; margin-bottom: 8px; }
+  .stars { font-size: 2rem; letter-spacing: 6px; margin-bottom: 10px; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <!-- START SCREEN -->
+    <section id="start">
+      <h1>Math Adventure</h1>
+      <p class="subtitle">Pick a level and solve the additions!</p>
+      <div class="levels">
+        <button class="level-btn lvl1" onclick="startGame(1)">
+          Level 1 <small>Sums up to 10</small>
+        </button>
+        <button class="level-btn lvl2" onclick="startGame(2)">
+          Level 2 <small>Sums up to 20</small>
+        </button>
+        <button class="level-btn lvl3" onclick="startGame(3)">
+          Level 3 <small>Sums up to 30</small>
+        </button>
+      </div>
+    </section>
+
+    <!-- QUIZ SCREEN -->
+    <section id="quiz" class="hidden">
+      <div class="topbar">
+        <span class="pill" id="levelLabel">Level 1</span>
+        <span class="pill" id="progressLabel">1 / 10</span>
+        <span class="pill" id="scoreLabel">Score: 0</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+      <div class="question" id="question">2 + 3</div>
+      <input class="answer-input" id="answer" type="number" inputmode="numeric" autocomplete="off" placeholder="?" />
+      <div class="feedback" id="feedback"></div>
+      <div>
+        <button class="btn" id="submitBtn" onclick="submitAnswer()">Check</button>
+      </div>
+    </section>
+
+    <!-- RESULTS SCREEN -->
+    <section id="results" class="hidden">
+      <h1>All done!</h1>
+      <div class="stars" id="stars"></div>
+      <div class="grade-badge" id="gradeBadge">A</div>
+      <p class="grade-msg" id="gradeMsg"></p>
+      <p class="score-big" id="finalScore">10 / 10</p>
+      <p class="subtitle" id="finalPct">100% correct</p>
+      <div>
+        <button class="btn" onclick="startGame(currentLevel)">Play Again</button>
+        <button class="btn secondary" onclick="goHome()">Menu</button>
+      </div>
+    </section>
+  </div>
+
+<script>
+  const TOTAL_QUESTIONS = 10;
+  const LEVEL_MAX = { 1: 10, 2: 20, 3: 30 };
+
+  let currentLevel = 1;
+  let questions = [];
+  let index = 0;
+  let score = 0;
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  // Build an addition question whose sum is <= max for the level.
+  function makeQuestion(max) {
+    const sum = randInt(1, max);          // target result (at least 1)
+    const a = randInt(0, sum);            // first addend
+    const b = sum - a;                    // second addend so a + b = sum
+    return { a, b, answer: sum };
+  }
+
+  function startGame(level) {
+    currentLevel = level;
+    questions = [];
+    for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+      questions.push(makeQuestion(LEVEL_MAX[level]));
+    }
+    index = 0;
+    score = 0;
+
+    show("quiz");
+    document.getElementById("levelLabel").textContent = "Level " + level;
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    const q = questions[index];
+    document.getElementById("question").textContent = q.a + " + " + q.b;
+    document.getElementById("progressLabel").textContent = (index + 1) + " / " + TOTAL_QUESTIONS;
+    document.getElementById("scoreLabel").textContent = "Score: " + score;
+    document.getElementById("progressFill").style.width = (index / TOTAL_QUESTIONS * 100) + "%";
+
+    const input = document.getElementById("answer");
+    input.value = "";
+    input.disabled = false;
+    input.focus();
+
+    document.getElementById("feedback").textContent = "";
+    document.getElementById("feedback").className = "feedback";
+
+    const btn = document.getElementById("submitBtn");
+    btn.textContent = "Check";
+    btn.onclick = submitAnswer;
+  }
+
+  function submitAnswer() {
+    const input = document.getElementById("answer");
+    const raw = input.value.trim();
+    if (raw === "") { input.focus(); return; }
+
+    const val = Number(raw);
+    const q = questions[index];
+    const fb = document.getElementById("feedback");
+
+    if (val === q.answer) {
+      score++;
+      fb.textContent = "Correct! " + q.a + " + " + q.b + " = " + q.answer + " 🎉";
+      fb.className = "feedback good";
+    } else {
+      fb.textContent = "Oops! " + q.a + " + " + q.b + " = " + q.answer;
+      fb.className = "feedback bad";
+    }
+
+    document.getElementById("scoreLabel").textContent = "Score: " + score;
+    input.disabled = true;
+
+    const btn = document.getElementById("submitBtn");
+    const isLast = index === TOTAL_QUESTIONS - 1;
+    btn.textContent = isLast ? "See Results" : "Next";
+    btn.onclick = nextQuestion;
+  }
+
+  function nextQuestion() {
+    if (index === TOTAL_QUESTIONS - 1) {
+      showResults();
+      return;
+    }
+    index++;
+    renderQuestion();
+  }
+
+  function gradeFor(pct) {
+    if (pct >= 90) return { grade: "A", color: "#2ecc71", stars: 5, msg: "Outstanding! You're a math star!" };
+    if (pct >= 80) return { grade: "B", color: "#27ae60", stars: 4, msg: "Great job! Keep it up!" };
+    if (pct >= 70) return { grade: "C", color: "#f39c12", stars: 3, msg: "Good work! A little more practice." };
+    if (pct >= 60) return { grade: "D", color: "#e67e22", stars: 2, msg: "Nice try! Let's practice more." };
+    return { grade: "F", color: "#e74c3c", stars: 1, msg: "Keep practicing, you can do it!" };
+  }
+
+  function showResults() {
+    const pct = Math.round(score / TOTAL_QUESTIONS * 100);
+    const g = gradeFor(pct);
+
+    document.getElementById("gradeBadge").textContent = g.grade;
+    document.getElementById("gradeBadge").style.background = g.color;
+    document.getElementById("gradeMsg").textContent = g.msg;
+    document.getElementById("finalScore").textContent = score + " / " + TOTAL_QUESTIONS;
+    document.getElementById("finalPct").textContent = pct + "% correct";
+    document.getElementById("stars").textContent =
+      "★".repeat(g.stars) + "☆".repeat(5 - g.stars);
+
+    show("results");
+  }
+
+  function goHome() { show("start"); }
+
+  function show(screen) {
+    ["start", "quiz", "results"].forEach(id => {
+      document.getElementById(id).classList.toggle("hidden", id !== screen);
+    });
+  }
+
+  // Allow pressing Enter to submit / advance.
+  document.getElementById("answer").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") document.getElementById("submitBtn").click();
+  });
+</script>
+</body>
+</html>
