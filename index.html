@@ -458,16 +458,24 @@
     });
   }
 
+  // Key that treats "2 + 3" and "3 + 2" as the same question.
+  function qKey(q) {
+    if (q.op === "+") {
+      return Math.min(q.a, q.b) + "+" + Math.max(q.a, q.b);
+    }
+    return q.a + "-" + q.b;
+  }
+
   function beginGame() {
     questions = [];
     let prevKey = null;
     for (let i = 0; i < numQuestions; i++) {
       let q, key, guard = 0;
-      do {                                   // avoid the same question twice in a row
+      do {                                   // make each question different from the previous one
         q = makeQuestion(currentLevel);
-        key = q.a + q.op + q.b;
+        key = qKey(q);
         guard++;
-      } while (key === prevKey && guard < 30);
+      } while (key === prevKey && guard < 40);
       prevKey = key;
       questions.push(q);
     }
