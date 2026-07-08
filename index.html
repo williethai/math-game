@@ -460,8 +460,16 @@
 
   function beginGame() {
     questions = [];
+    let prevKey = null;
     for (let i = 0; i < numQuestions; i++) {
-      questions.push(makeQuestion(currentLevel));
+      let q, key, guard = 0;
+      do {                                   // avoid the same question twice in a row
+        q = makeQuestion(currentLevel);
+        key = q.a + q.op + q.b;
+        guard++;
+      } while (key === prevKey && guard < 30);
+      prevKey = key;
+      questions.push(q);
     }
     index = 0;
     score = 0;
