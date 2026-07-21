@@ -400,9 +400,12 @@
     return arr;
   }
 
-  // Build 4 similar-looking answer options (correct one + 3 close distractors).
+  // Build 4 options: the correct answer, one adjacent-tens trap, and 2 close distractors.
   function makeOptions(answer) {
     const opts = new Set([answer]);
+    const tensTraps = [answer - 10, answer + 10].filter(c => c >= 0);
+    opts.add(tensTraps[randInt(0, tensTraps.length - 1)]);
+
     let spread = 1;
     while (opts.size < 4) {
       [answer - spread, answer + spread].forEach(c => {
