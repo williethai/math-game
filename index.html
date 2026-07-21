@@ -310,6 +310,7 @@
       <p class="score-big" id="finalScore">10 / 10</p>
       <p class="subtitle" id="finalPct">100% correct</p>
       <p class="subtitle" id="finalTime">Time: 0:00</p>
+      <p class="subtitle" id="finalCompleted">Completed: 21/07/2026 21:59:00</p>
       <div>
         <button class="btn" onclick="beginGame()">Play Again</button>
         <button class="btn secondary" onclick="openSetup()">Change Setup</button>
@@ -321,7 +322,7 @@
 <script>
   const LEVEL_MAX = { 1: 10, 2: 20, 3: 30 };   // addition-only levels (sum cap)
   const ADDSUB_MAX = { 4: 20, 5: 30, 6: 40 };  // add/subtract levels (numbers under this)
-  const MS_PER_QUESTION = 1700;                // ~1.7s per question -> whole-test time limit
+  const MS_PER_QUESTION = 1800;                // ~1.8s per question -> whole-test time limit
 
   let currentLevel = 1;
   let numQuestions = 10;
@@ -625,6 +626,16 @@
     return m + ":" + String(s).padStart(2, "0");
   }
 
+  function formatDateTime(date) {
+    const pad = value => String(value).padStart(2, "0");
+    return pad(date.getDate()) + "/" +
+      pad(date.getMonth() + 1) + "/" +
+      date.getFullYear() + " " +
+      pad(date.getHours()) + ":" +
+      pad(date.getMinutes()) + ":" +
+      pad(date.getSeconds());
+  }
+
   function finishGame(outcome) {
     if (gameOver) return;
     gameOver = true;
@@ -660,6 +671,8 @@
     document.getElementById("finalPct").textContent = pct + "% correct";
     document.getElementById("finalTime").textContent =
       "Time: " + formatTime(Math.min(elapsedMs, totalLimitMs)) + " / " + formatTime(totalLimitMs);
+    document.getElementById("finalCompleted").textContent =
+      "Completed: " + formatDateTime(new Date());
     document.getElementById("stars").textContent =
       "★".repeat(g.stars) + "☆".repeat(5 - g.stars);
 
